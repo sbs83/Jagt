@@ -216,5 +216,13 @@ def JagtlogSub(syr,eyr):
     plt.yticks([])
     ax.xaxis.set_ticks_position('none') # tick markers
     ax.yaxis.set_ticks_position('none')
-    plt.show()
+    plt.show(block=True)
     return
+    
+cntflag = 'y'
+while cntflag=='y':
+    yr1 = float(raw_input('Start yr: '))
+    yr2 = float(raw_input('end yr: '))
+    JagtlogSub(yr1,yr2)
+    cntflag=raw_input('Plot new year (y/n) : ')
+    

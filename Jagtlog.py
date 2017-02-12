@@ -55,7 +55,7 @@ df['nedlagt'] = df.fillna(0)['Antal Art 1'] + df.fillna(0)['Antal Art 2']+df.fil
 
 #def MakePlot(df, stdag, endag): 
 
-stdag = datetime.datetime(2015, 7, 1)
+stdag = datetime.datetime(2016, 7, 1)
 endag = datetime.datetime(2017, 7, 1)    
 subset = df[(df['Dato']<=endag) & ((df['Dato']>=stdag))]
 ### Plot dyr der er skydt...             
