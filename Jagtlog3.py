@@ -7,6 +7,7 @@ import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
+matplotlib.use('qt5agg')
 
 matplotlib.style.use('ggplot')
 
@@ -49,10 +50,9 @@ del df['Tidsstempel']
 df.replace('nan', np.NaN)
 df['Haglnr'] = df['Hagl størrelse (mm)'].apply(lambda col: haglstr(col))
 df['Ammo'] = df['Ammunition fabrikant'] + ' \n ' + df['type'] + ' \n ' + df['Ammo Længde (mm)'] + ' mm nr. ' + df['Haglnr']
-df['Ammo'].replace(np.nan, 'Mix', regex=True)
+df['Ammo'] = df['Ammo'].replace(np.nan, 'Mix', regex=True)
 df['nedlagt'] = df.fillna(0)['Antal Art 1'] + df.fillna(0)['Antal Art 2'] + df.fillna(0)['Antal Art 3'] + df.fillna(0)[
     'Antal Art 4']
-
 
 stdag = datetime.datetime(int(syr), 7, 1)
 endag = datetime.datetime(int(eyr), 7, 1)
@@ -116,10 +116,12 @@ for rect in rects1:
     height = rect.get_height()
     ax.text(rect.get_x() + rect.get_width() / 2., 0.99 * height,
             '%d' % int(height) + "%", ha='center', va='bottom')
+
+aname = list(ammo.keys())
 count = 0
 for rect in rects1:
-    ned = str(int(ammo[ammo.keys()[count]][0]))
-    sku = str(int(ammo[ammo.keys()[count]][1]))
+    ned = str(int(ammo[aname[count]][0]))
+    sku = str(int(ammo[aname[count]][1]))
     height = rect.get_height()
     if height == 0.:
         ax.text(rect.get_x() + rect.get_width() / 2., 25.,
@@ -212,3 +214,5 @@ plt.yticks([])
 ax.xaxis.set_ticks_position('none')  # tick markers
 ax.yaxis.set_ticks_position('none')
 plt.show(block=True)
+
+
