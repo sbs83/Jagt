@@ -1,0 +1,8 @@
+name: jagt-environment
+dependencies:
+  - numpy
+  - io
+  - requests
+  - matplotlib
+  - datetime
+  - pandas
