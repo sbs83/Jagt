@@ -8,13 +8,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('qt5agg')
+import re
 
 matplotlib.style.use('ggplot')
 
 
 def haglstr(x):
     try:
-        f = np.float(x.replace(',', '.'))
+        x = re.sub("([\(\[]).*?([\)\]])", "\g<1>\g<2>", x).replace(' ()', '')
+        f = float(x.replace(',', '.'))
         mm = round(f * 4) / 4
         if mm == 2.0:
             nr = '9'
@@ -47,7 +49,16 @@ def JagtlogSub(syr,eyr):
     del df['Tidsstempel']
     df.replace('nan', np.NaN)
     df['Haglnr'] = df['Hagl størrelse (mm)'].apply(lambda col: haglstr(col))
-    df['Ammo'] = df['Ammunition fabrikant'] + ' \n ' + df['type'] + ' \n ' + df['Ammo Længde (mm)'] + ' mm nr. ' + df['Haglnr']
+    infostr = ('65mm-'+df['Ammo Længde (mm) og ladning (gram) [65]'].astype(str)+ ' ' + \
+              '67,5mm-'+df['Ammo Længde (mm) og ladning (gram) [67,5]'].astype(str)+ ' ' + \
+              '70mm-'+df['Ammo Længde (mm) og ladning (gram) [70]'].astype(str)+ ' ' + \
+              '76mm-'+df['Ammo Længde (mm) og ladning (gram) [76]'].astype(str) \
+              )
+    infostr = infostr.str.replace('65mm-nan', '')
+    infostr = infostr.str.replace('67,5mm-nan', '')
+    infostr = infostr.str.replace('70mm-nan', '')
+    infostr = infostr.str.replace('76mm-nan', '')
+    df['Ammo'] = df['Ammunition fabrikant'] + ' \n ' +df['type'] +' Hagl ' + df['Haglnr']  + ' \n ' + infostr
     df['Ammo'] = df['Ammo'].replace(np.nan, 'Mix', regex=True)
     df['nedlagt'] = df.fillna(0)['Antal Art 1'] + df.fillna(0)['Antal Art 2'] + df.fillna(0)['Antal Art 3'] + df.fillna(0)[
         'Antal Art 4']
