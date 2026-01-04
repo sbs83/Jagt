@@ -313,6 +313,12 @@ app.layout = html.Div([
         html.Div([
             dcc.Graph(id='kommune-bar-chart')
         ], style={'width': '50%', 'display': 'inline-block'}),
+    ], style={'marginTop': 30}),
+    
+    html.Div([
+        html.Div([
+            dcc.Graph(id='ammo-type-bar-chart')
+        ], style={'width': '100%', 'display': 'inline-block'}),
     ], style={'marginTop': 30})
 ], style={'padding': '20px'})
 
@@ -321,7 +327,8 @@ app.layout = html.Div([
      Output('ammo-bar-chart', 'figure'),
      Output('kommune-bar-chart', 'figure'),
      Output('season-table', 'data'),
-     Output('season-table', 'columns')],
+     Output('season-table', 'columns'),
+     Output('ammo-type-bar-chart', 'figure')],
     [Input('start-year', 'value'),
      Input('start-month', 'value'),
      Input('end-year', 'value'),
@@ -337,16 +344,36 @@ def update_dashboard(start_year, start_month, end_year, end_month):
     pie_fig = go.Figure(data=[go.Pie(labels=labels, values=values, textposition='inside')])
     pie_fig.update_layout(
         title=f'Jagtlog<br>{stdag.date()} til {endag.date()}',
-        height=400
+        height=550
     )
     
     # Ammunition bar chart - grouped by manufacturer with shot sizes
-    # Sort ammunition by manufacturer and shot size
-    ammo_sorted = dict(sorted(ammosat.items(), key=lambda x: (x[0].split('#')[0] if '#' in x[0] else 'ZZZ', x[0])))
+    # Organize data by manufacturer first, then shot size
+    manufacturer_data = {}
     
-    ammo_names = list(ammo_sorted.keys())
-    ammo_values = list(ammo_sorted.values())
-    ammo_text = [f"{int(ammo[name][0])}/{int(ammo[name][1])}<br>{int(ammo[name][2])}%" for name in ammo_names]
+    for name in ammosat.keys():
+        if name == 'Total':
+            continue
+        
+        if '#' in name:
+            manufacturer = name.split('#')[0].strip()
+            shot_size = name.split('#')[1].strip()
+        else:
+            manufacturer = 'Unknown'
+            shot_size = 'Unknown'
+        
+        if manufacturer not in manufacturer_data:
+            manufacturer_data[manufacturer] = {}
+        
+        manufacturer_data[manufacturer][shot_size] = {
+            'percentage': ammosat[name],
+            'nedlagt': ammo[name][0],
+            'skud': ammo[name][1],
+            'text': f"{int(ammo[name][0])}/{int(ammo[name][1])}<br>{int(ammo[name][2])}%"
+        }
+    
+    # Sort manufacturers alphabetically
+    sorted_manufacturers = sorted(manufacturer_data.keys())
     
     # Create colors based on shot size
     size_color_map = {
@@ -363,55 +390,76 @@ def update_dashboard(start_year, start_month, end_year, end_month):
         'Unknown': '#A9A9A9'  # Dark gray
     }
     
-    # Extract shot sizes and create figure with traces for legend
+    # Create figure
     ammo_fig = go.Figure()
     
-    # Track which sizes are actually used for the legend
-    sizes_used = set()
-    colors = []
+    # Build data organized by shot size for proper legend
+    shot_order = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'Mix', 'Unknown']
+    x_pos = 0
     
-    for name in ammo_names:
-        if name == 'Total':
-            shot_size = 'Total'
-            color = 'darkgray'
-        else:
-            if '#' in name:
-                shot_size = name.split('#')[1].strip()
-            else:
-                shot_size = 'Unknown'
-            color = size_color_map.get(shot_size, '#808080')
-        
-        sizes_used.add(shot_size)
-        colors.append(color)
+    # Store all data points by shot size
+    shot_size_data = {size: {'x': [], 'y': [], 'text': []} for size in shot_order}
     
-    # Add one trace per unique shot size for legend
-    size_to_bars = {}
-    for i, name in enumerate(ammo_names):
-        if name == 'Total':
-            shot_size = 'Total'
-        else:
-            shot_size = name.split('#')[1].strip() if '#' in name else 'Unknown'
-        
-        if shot_size not in size_to_bars:
-            size_to_bars[shot_size] = {'x': [], 'y': [], 'text': []}
-        
-        size_to_bars[shot_size]['x'].append(name)
-        size_to_bars[shot_size]['y'].append(ammo_values[i])
-        size_to_bars[shot_size]['text'].append(ammo_text[i])
+    # Add spacing between manufacturers
+    spacing = 0.5  # Half bar width of space between manufacturers
     
-    # Add traces in order from #1 to #9, then Mix/Unknown, then Total
-    shot_order = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'Mix', 'Unknown', 'Total']
+    for idx, manufacturer in enumerate(sorted_manufacturers):
+        if idx > 0:
+            x_pos += spacing  # Add space before each new manufacturer (except first)
+        
+        shot_sizes = sorted(manufacturer_data[manufacturer].keys())
+        for shot_size in shot_sizes:
+            data = manufacturer_data[manufacturer][shot_size]
+            shot_size_data[shot_size]['x'].append(x_pos)
+            shot_size_data[shot_size]['y'].append(data['percentage'])
+            shot_size_data[shot_size]['text'].append(data['text'])
+            x_pos += 1
+    
+    # Add traces for each shot size (for legend)
     for shot_size in shot_order:
-        if shot_size in size_to_bars:
-            color = 'darkgray' if shot_size == 'Total' else size_color_map.get(shot_size, '#808080')
+        if shot_size_data[shot_size]['x']:  # Only add if there's data
+            color = size_color_map.get(shot_size, '#808080')
             ammo_fig.add_trace(go.Bar(
-                name=f'#{shot_size}' if shot_size not in ['Total', 'Mix', 'Unknown'] else shot_size,
-                x=size_to_bars[shot_size]['x'],
-                y=size_to_bars[shot_size]['y'],
-                text=size_to_bars[shot_size]['text'],
+                name=f'#{shot_size}' if shot_size not in ['Mix', 'Unknown'] else shot_size,
+                x=shot_size_data[shot_size]['x'],
+                y=shot_size_data[shot_size]['y'],
+                text=shot_size_data[shot_size]['text'],
                 textposition='inside',
-                marker_color=color
+                marker_color=color,
+                hovertemplate='%{y:.1f}%<extra></extra>'
             ))
+    
+    # Add Total bar with extra spacing
+    total_x = x_pos + spacing + 0.5
+    ammo_fig.add_trace(go.Bar(
+        name='Total',
+        x=[total_x],
+        y=[ammosat['Total']],
+        text=[f"{int(ammo['Total'][0])}/{int(ammo['Total'][1])}<br>{int(ammo['Total'][2])}%"],
+        textposition='inside',
+        marker_color='darkgray',
+        hovertemplate='%{y:.1f}%<extra></extra>'
+    ))
+    
+    # Create custom x-axis tick labels and positions
+    tickvals = []
+    ticktext = []
+    
+    x_pos = 0
+    for idx, manufacturer in enumerate(sorted_manufacturers):
+        if idx > 0:
+            x_pos += spacing
+        
+        shot_count = len(manufacturer_data[manufacturer])
+        # Place label in the middle of the group
+        middle_pos = x_pos + (shot_count - 1) / 2.0
+        tickvals.append(middle_pos)
+        ticktext.append(manufacturer)
+        x_pos += shot_count
+    
+    # Add Total label
+    tickvals.append(total_x)
+    ticktext.append('Total')
     
     ammo_fig.update_layout(
         title='Skud statistik',
@@ -428,7 +476,13 @@ def update_dashboard(start_year, start_month, end_year, end_month):
             borderwidth=1
         ),
         height=400,
-        xaxis={'tickangle': -45}
+        xaxis=dict(
+            tickmode='array',
+            tickvals=tickvals,
+            ticktext=ticktext,
+            tickangle=-45
+        ),
+        bargap=0.0  # No gap between bars within a manufacturer
     )
     ammo_fig.update_yaxes(showticklabels=False)
     
@@ -454,7 +508,75 @@ def update_dashboard(start_year, start_month, end_year, end_month):
     table_data = create_season_table(df)
     table_columns = [{"name": i, "id": i} for i in table_data[0].keys()]
     
-    return pie_fig, ammo_fig, kommune_fig, table_data, table_columns
+    # Ammunition type statistics chart
+    type_stats = {}
+    type_total_n = 0
+    type_total_s = 0
+    
+    for idx, row in subset.iterrows():
+        ammo_type = row['type']
+        
+        if pd.isna(ammo_type) or ammo_type == 'nan':
+            ammo_type = 'Unknown'
+        
+        nedlagt = row['nedlagt'] if not pd.isna(row['nedlagt']) else 0
+        skud = row['Antal Skud'] if not pd.isna(row['Antal Skud']) else 0
+        
+        if ammo_type not in type_stats:
+            type_stats[ammo_type] = {'nedlagt': 0, 'skud': 0}
+        
+        type_stats[ammo_type]['nedlagt'] += nedlagt
+        type_stats[ammo_type]['skud'] += skud
+        type_total_n += nedlagt
+        type_total_s += skud
+    
+    # Calculate percentages for types
+    type_names = sorted(type_stats.keys())
+    type_percentages = []
+    type_text = []
+    
+    for type_name in type_names:
+        n = type_stats[type_name]['nedlagt']
+        s = type_stats[type_name]['skud']
+        if s > 0:
+            percentage = np.round(n / s * 100., decimals=1)
+        else:
+            percentage = 0
+        type_percentages.append(percentage)
+        type_text.append(f"{int(n)}/{int(s)}<br>{int(percentage)}%")
+    
+    # Add Total for types
+    if type_total_s > 0:
+        total_percentage = np.round(type_total_n / type_total_s * 100., decimals=1)
+    else:
+        total_percentage = 0
+    type_names.append('Total')
+    type_percentages.append(total_percentage)
+    type_text.append(f"{int(type_total_n)}/{int(type_total_s)}<br>{int(total_percentage)}%")
+    
+    # Create type bar chart
+    type_colors = px.colors.qualitative.Set3
+    colors_type = [type_colors[i % len(type_colors)] if name != 'Total' else 'darkgray' for i, name in enumerate(type_names)]
+    
+    type_fig = go.Figure(data=[go.Bar(
+        x=type_names,
+        y=type_percentages,
+        text=type_text,
+        textposition='inside',
+        marker_color=colors_type
+    )])
+    
+    type_fig.update_layout(
+        title='Skud statistik efter ammunition type',
+        xaxis_title='',
+        yaxis_title='',
+        showlegend=False,
+        height=400,
+        xaxis={'tickangle': -45}
+    )
+    type_fig.update_yaxes(showticklabels=False)
+    
+    return pie_fig, ammo_fig, kommune_fig, table_data, table_columns, type_fig
 
 if __name__ == '__main__':
     app.run(debug=True, port=8050)
